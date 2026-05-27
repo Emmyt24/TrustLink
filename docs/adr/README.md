@@ -12,9 +12,7 @@ the trade-offs accepted as a result.
 | [ADR-002](ADR-002-persistent-storage.md) | Persistent storage instead of temporary storage | Accepted |
 | [ADR-003](ADR-003-immutable-history.md) | Immutable attestation history (no delete) | Accepted |
 | [ADR-004](ADR-004-dual-indexes.md) | Separate issuer and subject indexes | Accepted |
-| [ADR-005a](ADR-005-attestation-origin-enum.md) | Attestation origin enum | Accepted |
-| [ADR-005b](ADR-005-prevent-admin-fee-collection.md) | Prevent admin from collecting their own fees | Accepted |
-| [ADR-006](ADR-006-multisig-attestations.md) | Multi-sig attestation design (M-of-N, 7-day TTL, immutable finalization) | Accepted |
+| [ADR-007](ADR-007-attestation-requests.md) | Pull-based attestation request workflow (subject-initiated, 7-day TTL, optional rejection reason) | Accepted |
 
 ## Template
 
