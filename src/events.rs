@@ -178,7 +178,7 @@ impl Events {
 
     pub fn issuer_tier_updated(env: &Env, issuer: &Address, tier: &IssuerTier) {
         env.events()
-            .publish((TOPIC_ISS_TIER, issuer.clone()), *tier);
+            .publish((TOPIC_ISS_TIER, issuer.clone()), (old_tier, new_tier));
     }
 
     pub fn issuer_removed(env: &Env, issuer: &Address, admin: &Address, timestamp: u64) {

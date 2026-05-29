@@ -280,11 +280,35 @@ export class TrustLinkClient {
     );
   }
 
-  async getAttestationsByTag(subject: string, tag: string): Promise<string[]> {
-    return this.simulate(
+  async getAttestationsByTag(subject: string, tag: string, start = 0, limit = 20): Promise<string[]> {
+    const all = await this.simulate<string[]>(
       "get_attestations_by_tag",
       this.addr(subject),
       this.str(tag)
+    );
+    return all.slice(start, start + limit);
+  }
+
+  /**
+   * Returns a paginated list of attestation IDs for a subject filtered by jurisdiction.
+   *
+   * @param subject     - Stellar address of the subject.
+   * @param jurisdiction - Jurisdiction code to filter by (e.g. "US", "EU").
+   * @param start       - Zero-based page offset.
+   * @param limit       - Maximum number of IDs to return.
+   */
+  async getAttestationsByJurisdiction(
+    subject: string,
+    jurisdiction: string,
+    start: number,
+    limit: number
+  ): Promise<string[]> {
+    return this.simulate(
+      "get_attestations_by_jurisdiction",
+      this.addr(subject),
+      this.str(jurisdiction),
+      this.u32(start),
+      this.u32(limit)
     );
   }
 
