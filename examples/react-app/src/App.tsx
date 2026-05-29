@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { connectWallet, getWalletAddress } from "./wallet";
+import { connectWallet, getWalletAddress, disconnectWallet } from "./wallet";
 import AdminPanel from "./panels/AdminPanel";
 import IssuerPanel from "./panels/IssuerPanel";
 import UserPanel from "./panels/UserPanel";
@@ -31,6 +31,13 @@ export default function App() {
     } finally {
       setConnecting(false);
     }
+  }
+
+  async function handleDisconnect() {
+    await disconnectWallet();
+    setAddress(null);
+    setTab("user");
+    setError(null);
   }
 
   const short = address ? `${address.slice(0, 6)}…${address.slice(-4)}` : "";
@@ -69,7 +76,7 @@ export default function App() {
         <h1>TrustLink</h1>
         <div className="wallet-info">
           <span className="addr">{short}</span>
-          <button className="btn btn-outline" style={{ fontSize: "0.8rem", padding: "0.3rem 0.75rem" }} onClick={() => setAddress(null)}>
+          <button className="btn btn-outline" style={{ fontSize: "0.8rem", padding: "0.3rem 0.75rem" }} onClick={handleDisconnect}>
             Disconnect
           </button>
         </div>
