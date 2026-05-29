@@ -1,36 +1,26 @@
-"""TrustLink Python SDK"""
+"""TrustLink Python bindings."""
 
 from .client import TrustLinkClient
 from .types import (
     Attestation,
     AttestationStatus,
-    AuditEntry,
-    AuditAction,
-    ContractConfig,
-    FeeConfig,
-    TtlConfig,
-    IssuerMetadata,
-    IssuerStats,
-    IssuerTier,
+    ClaimTypeInfo,
     GlobalStats,
-    HealthStatus,
-    Error,
+    IssuerStats,
+    MultiSigProposal,
+    TrustLinkError,
+    ContractError,
 )
 
 __version__ = "0.1.0"
 __all__ = [
     "TrustLinkClient",
     "Attestation",
-    "AttestationStatus", 
-    "AuditEntry",
-    "AuditAction",
-    "ContractConfig",
-    "FeeConfig",
-    "TtlConfig",
-    "IssuerMetadata",
-    "IssuerStats",
-    "IssuerTier",
+    "AttestationStatus",
+    "ClaimTypeInfo",
     "GlobalStats",
-    "HealthStatus",
-    "Error",
+    "IssuerStats",
+    "MultiSigProposal",
+    "TrustLinkError",
+    "ContractError",
 ]

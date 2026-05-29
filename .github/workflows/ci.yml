@@ -30,7 +30,15 @@ jobs:
         run: rustup show
 
       - name: Cache cargo registry and build artifacts
-        uses: Swatinem/rust-cache@v2
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
 
       - name: Check lib
         run: cargo check --lib
@@ -61,6 +69,14 @@ jobs:
           files: ./lcov.info
           fail_ci_if_error: true
 
+      - name: Commit and push
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add -A
+          git diff --staged --quiet || git commit -m "Auto-build artifacts and coverage"
+          git push
+
   wasm-size:
     name: WASM Size Check
     runs-on: ubuntu-latest
@@ -77,24 +93,48 @@ jobs:
         run: rustup show
 
       - name: Cache cargo registry and build artifacts
-        uses: Swatinem/rust-cache@v2
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Install binaryen (wasm-opt)
+        run: sudo apt-get install -y binaryen
 
       - name: Build WASM
         run: cargo build --target wasm32-unknown-unknown --release
 
-      - name: Measure and check WASM size
+      - name: Optimize WASM with wasm-opt -Oz
+        run: |
+          wasm-opt -Oz --enable-bulk-memory --strip-debug \
+            target/wasm32-unknown-unknown/release/trustlink.wasm \
+            -o target/wasm32-unknown-unknown/release/trustlink.optimized.wasm
+
+      - name: Measure and check optimized WASM size
         id: measure
         run: |
-          WASM=target/wasm32-unknown-unknown/release/trustlink.wasm
-          SIZE=$(stat -c%s "$WASM")
+          RAW=target/wasm32-unknown-unknown/release/trustlink.wasm
+          OPT=target/wasm32-unknown-unknown/release/trustlink.optimized.wasm
+          RAW_SIZE=$(stat -c%s "$RAW")
+          OPT_SIZE=$(stat -c%s "$OPT")
           MAX=$((100 * 1024))
-          echo "WASM size: ${SIZE} bytes ($(( SIZE / 1024 )) KB)"
-          echo "size_bytes=${SIZE}" >> "$GITHUB_OUTPUT"
-          echo "${SIZE}" > wasm-size.txt
-          if [ "$SIZE" -gt "$MAX" ]; then
-            echo "ERROR: WASM size ${SIZE} bytes exceeds 100 KB threshold."
+          SAVED=$(( RAW_SIZE - OPT_SIZE ))
+          PCT=$(( SAVED * 100 / RAW_SIZE ))
+          echo "Raw WASM:       ${RAW_SIZE} bytes ($(( RAW_SIZE / 1024 )) KB)"
+          echo "Optimized WASM: ${OPT_SIZE} bytes ($(( OPT_SIZE / 1024 )) KB)"
+          echo "Saved:          ${SAVED} bytes (~${PCT}%)"
+          echo "size_bytes=${OPT_SIZE}" >> "$GITHUB_OUTPUT"
+          echo "${OPT_SIZE}" > wasm-size.txt
+          if [ "$OPT_SIZE" -gt "$MAX" ]; then
+            echo "ERROR: Optimized WASM ${OPT_SIZE} bytes exceeds 100 KB threshold."
             exit 1
           fi
+          echo "OK: optimized binary is within the 100 KB limit."
 
       - name: Upload size artifact
         uses: actions/upload-artifact@v4
@@ -155,9 +195,9 @@ jobs:
               const regressionAlert = delta > 0 && (delta / main) > 0.10
                 ? `\n> ⚠️ **Size increased by more than 10%** (${sign}${pct}%) — please investigate.`
                 : '';
-              body = `## WASM Size Report\n\n| | Size |\n|---|---|\n| This PR | ${currentKB} KB |\n| \`main\` | ${mainKB} KB |\n| Delta | ${sign}${deltaKB} KB (${sign}${pct}%) |\n\n${sizeBar} Threshold: ${maxKB} KB${regressionAlert}`;
+              body = `## WASM Size Report (optimized)\n\n> Sizes reflect the \`wasm-opt -Oz\` optimized binary used for deployment.\n\n| | Size |\n|---|---|\n| This PR | ${currentKB} KB |\n| \`main\` | ${mainKB} KB |\n| Delta | ${sign}${deltaKB} KB (${sign}${pct}%) |\n\n${sizeBar} Threshold: ${maxKB} KB${regressionAlert}`;
             } else {
-              body = `## WASM Size Report\n\n| | Size |\n|---|---|\n| This PR | ${currentKB} KB |\n| \`main\` | N/A (no baseline) |\n\n${sizeBar} Threshold: ${maxKB} KB`;
+              body = `## WASM Size Report (optimized)\n\n> Sizes reflect the \`wasm-opt -Oz\` optimized binary used for deployment.\n\n| | Size |\n|---|---|\n| This PR | ${currentKB} KB |\n| \`main\` | N/A (no baseline) |\n\n${sizeBar} Threshold: ${maxKB} KB`;
             }
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner, repo: context.repo.repo,
@@ -188,7 +228,15 @@ jobs:
         run: rustup show
 
       - name: Cache cargo registry and build artifacts
-        uses: Swatinem/rust-cache@v2
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
 
       - name: Install Stellar CLI
         run: cargo install --locked stellar-cli --features opt

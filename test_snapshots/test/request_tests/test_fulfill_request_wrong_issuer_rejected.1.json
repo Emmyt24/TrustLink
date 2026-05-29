@@ -310,7 +310,7 @@
             "key": {
               "vec": [
                 {
-                  "symbol": "IssuerRequests"
+                  "symbol": "IssuerPendingRequests"
                 },
                 {
                   "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
@@ -330,7 +330,7 @@
                 "key": {
                   "vec": [
                     {
-                      "symbol": "IssuerRequests"
+                      "symbol": "IssuerPendingRequests"
                     },
                     {
                       "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
@@ -379,12 +379,16 @@
                         "key": {
                           "vec": [
                             {
-                              "symbol": "Admin"
+                              "symbol": "AdminCouncil"
                             }
                           ]
                         },
                         "val": {
-                          "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                          "vec": [
+                            {
+                              "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                            }
+                          ]
                         }
                       },
                       {
@@ -953,7 +957,7 @@
           "v0": {
             "topics": [
               {
-                "symbol": "req"
+                "symbol": "att_req"
               },
               {
                 "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"

@@ -1,11 +1,11 @@
-# TrustLink Python SDK
+# TrustLink Python Bindings
 
-Python client library for interacting with TrustLink on-chain attestation system on Stellar.
+Python SDK for the TrustLink on-chain attestation contract on Stellar.
 
 ## Installation
 
 ```bash
-pip install trustlink-sdk
+pip install trustlink-contract
 ```
 
 ## Quick Start
@@ -15,131 +15,87 @@ from trustlink import TrustLinkClient
 
 # Initialize client
 client = TrustLinkClient(
-    contract_id="CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQAHHAGK6Z6E",
-    rpc_url="https://soroban-testnet.stellar.org:443"
+    contract_id="C...",
+    rpc_url="https://soroban-testnet.stellar.org",
+    network_passphrase="Test SDF Network ; September 2015"
 )
 
-# Check contract health
-health = client.health_check()
-print(f"Contract initialized: {health.initialized}")
+# Query attestations
+attestations = client.get_subject_attestations("GXXXXXX", offset=0, limit=50)
 
-# Get an attestation
-attestation = client.get_attestation("attestation_id_here")
-print(f"Attestation for {attestation.subject}: {attestation.claim_type}")
+# Check if user has valid claim
+has_kyc = client.has_valid_claim("GXXXXXX", "KYC_PASSED")
 
-# Get audit log for compliance tracking
-audit_log = client.get_audit_log("attestation_id_here")
-for entry in audit_log:
-    print(f"{entry.timestamp}: {entry.action.value} by {entry.actor}")
-```
+# Create attestation (requires issuer auth)
+client.create_attestation(
+    issuer_secret="SXXXXXX",
+    subject="GXXXXXX",
+    claim_type="KYC_PASSED",
+    expiration=None,
+    metadata=None
+)
 
-## Audit Log Usage
-
-The `get_audit_log()` method is essential for compliance tools that need to reconstruct the full lifecycle of an attestation:
-
-```python
-# Get complete audit trail for an attestation
-attestation_id = "att_123456789"
-audit_entries = client.get_audit_log(attestation_id)
-
-# Reconstruct attestation lifecycle
-for entry in audit_entries:
-    print(f"Action: {entry.action.value}")
-    print(f"Timestamp: {entry.timestamp}")
-    print(f"Actor: {entry.actor}")
-    if entry.details:
-        print(f"Details: {entry.details}")
-    print("---")
-
-# Example output:
-# Action: Created
-# Timestamp: 1640995200
-# Actor: GDXLKEY5TR4IDEVSTRYUNYY3DPXQKQNSTDJ7HIVNFTJYQHOZXB7CRQME
-# ---
-# Action: Renewed
-# Timestamp: 1672531200
-# Actor: GDXLKEY5TR4IDEVSTRYUNYY3DPXQKQNSTDJ7HIVNFTJYQHOZXB7CRQME
-# Details: Extended expiration by 365 days
-# ---
+# Revoke attestation
+client.revoke_attestation(
+    issuer_secret="SXXXXXX",
+    attestation_id="att_...",
+    reason="User requested"
+)
 ```
 
 ## API Reference
 
-### TrustLinkClient
+### Read Operations
 
-Main client class for interacting with TrustLink contracts.
+- `get_subject_attestations(subject, offset, limit)` - Get attestations for a subject
+- `has_valid_claim(subject, claim_type)` - Check if subject has valid claim
+- `has_valid_claim_from_issuer(subject, claim_type, issuer)` - Check claim from specific issuer
+- `has_any_claim(subject, claim_types)` - Check if subject has any of the claim types
+- `has_all_claims(subject, claim_types)` - Check if subject has all claim types
+- `get_attestation(attestation_id)` - Get specific attestation
+- `get_attestation_status(attestation_id)` - Get attestation status
+- `get_issuer_attestations(issuer, offset, limit)` - Get attestations issued by issuer
+- `list_claim_types(offset, limit)` - List registered claim types
+- `get_global_stats()` - Get contract-wide statistics
+- `is_issuer(address)` - Check if address is registered issuer
 
-#### Methods
+### Write Operations
 
-- `get_audit_log(attestation_id: str) -> List[AuditEntry]`: Get audit log for an attestation
-- `get_attestation(attestation_id: str) -> Attestation`: Get attestation by ID
-- `get_attestation_status(attestation_id: str) -> AttestationStatus`: Get attestation status
-- `health_check() -> HealthStatus`: Get contract health status
-- `get_global_stats() -> GlobalStats`: Get global contract statistics
+- `create_attestation(issuer_secret, subject, claim_type, expiration, metadata)` - Create attestation
+- `revoke_attestation(issuer_secret, attestation_id, reason)` - Revoke attestation
+- `register_issuer(admin_secret, issuer)` - Register issuer (admin only)
+- `remove_issuer(admin_secret, issuer)` - Remove issuer (admin only)
+- `propose_attestation(issuer_secret, subject, claim_type, required_signers, threshold)` - Propose multi-sig attestation
+- `cosign_attestation(issuer_secret, proposal_id)` - Co-sign multi-sig proposal
 
-### Types
+## Type Hints
 
-#### AuditEntry
-
-Represents an audit log entry:
-
-```python
-@dataclass
-class AuditEntry:
-    attestation_id: str
-    action: AuditAction  # Created, Revoked, Renewed, Updated, Transferred
-    timestamp: int
-    actor: str
-    details: Optional[str]
-```
-
-#### Attestation
-
-Represents an attestation record:
+All functions include full type hints for IDE support and static type checking.
 
 ```python
-@dataclass
-class Attestation:
-    id: str
-    issuer: str
-    subject: str
-    claim_type: str
-    timestamp: int
-    expiration: Optional[int]
-    revoked: bool
-    metadata: Optional[str]
-    # ... additional fields
+from trustlink import Attestation, AttestationStatus
+
+def process_attestation(att: Attestation) -> None:
+    print(f"ID: {att['id']}")
+    print(f"Issuer: {att['issuer']}")
+    print(f"Subject: {att['subject']}")
+    print(f"Claim Type: {att['claim_type']}")
+    print(f"Status: {att['status']}")
 ```
 
 ## Error Handling
 
 ```python
-from trustlink import TrustLinkClient, Error
+from trustlink import TrustLinkError, ContractError
 
 try:
-    audit_log = client.get_audit_log("invalid_id")
-except Error as e:
-    print(f"TrustLink error {e.code}: {e.message}")
-except Exception as e:
-    print(f"Unexpected error: {e}")
-```
-
-## Development
-
-```bash
-# Install development dependencies
-pip install -e ".[dev]"
-
-# Run tests
-pytest
-
-# Format code
-black trustlink/
-
-# Type checking
-mypy trustlink/
+    client.create_attestation(...)
+except ContractError as e:
+    print(f"Contract error: {e.code} - {e.message}")
+except TrustLinkError as e:
+    print(f"SDK error: {e}")
 ```
 
 ## License
 
-MIT License - see LICENSE file for details.
+MIT

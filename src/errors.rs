@@ -51,4 +51,17 @@ pub enum Error {
     CannotDelegateToSelf = 28,
     /// Cannot remove the last remaining admin from council
     LastAdminCannotBeRemoved = 29,
+    /// Issuer is rate-limited and must wait before creating another attestation.
+    RateLimited = 30,
+    InvalidClaimType = 31,
+    InvalidJurisdiction = 32,
+    LimitExceeded = 33,
+    BatchTooLarge = 34,
+    InvalidFeeToken = 35,
+    /// An attestation request with the same ID already exists.
+    DuplicateRequest = 36,
+    /// The request has already been fulfilled or rejected.
+    RequestAlreadyProcessed = 37,
+    /// The attestation request has expired.
+    RequestExpired = 38,
 }

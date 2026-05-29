@@ -1,8 +1,10 @@
 import { PubSub } from "graphql-subscriptions";
-import { PrismaClient, Attestation } from "@prisma/client";
+import { PrismaClient, Attestation, MultisigProposal } from "@prisma/client";
 
 export const pubsub = new PubSub();
 export const ATTESTATION_CREATED = "ATTESTATION_CREATED";
+export const ATTESTATION_REVOKED = "ATTESTATION_REVOKED";
+export const ISSUER_REGISTERED = "ISSUER_REGISTERED";
 
 type MappedAttestation = Omit<Attestation, "timestamp" | "expiration" | "createdAt" | "updatedAt"> & {
   timestamp: string;
@@ -11,22 +13,10 @@ type MappedAttestation = Omit<Attestation, "timestamp" | "expiration" | "created
   updatedAt: string;
 };
 
-type PageInfo = {
-  hasNextPage: boolean;
-  hasPreviousPage: boolean;
-  startCursor: string | null;
-  endCursor: string | null;
-};
-
-type AttestationEdge = {
-  node: MappedAttestation;
-  cursor: string;
-};
-
-type AttestationConnection = {
-  edges: AttestationEdge[];
-  pageInfo: PageInfo;
-  totalCount: number;
+type MappedProposal = Omit<MultisigProposal, "expiresAt" | "createdAt" | "updatedAt"> & {
+  expiresAt: string;
+  createdAt: string;
+  updatedAt: string;
 };
 
 function mapAttestation(a: Attestation): MappedAttestation {
@@ -39,58 +29,12 @@ function mapAttestation(a: Attestation): MappedAttestation {
   };
 }
 
-function encodeCursor(id: string): string {
-  return Buffer.from(id).toString('base64');
-}
-
-function decodeCursor(cursor: string): string {
-  return Buffer.from(cursor, 'base64').toString('utf-8');
-}
-
-async function buildAttestationConnection(
-  db: PrismaClient,
-  where: Record<string, unknown>,
-  first?: number,
-  after?: string
-): Promise<AttestationConnection> {
-  const limit = Math.min(first || 50, 100); // Default 50, max 100
-  
-  // Get total count for the query
-  const totalCount = await db.attestation.count({ where });
-  
-  // Build cursor-based query
-  const cursorWhere = { ...where };
-  if (after) {
-    const decodedCursor = decodeCursor(after);
-    cursorWhere.id = { gt: decodedCursor };
-  }
-  
-  // Fetch one extra to determine hasNextPage
-  const rows = await db.attestation.findMany({
-    where: cursorWhere,
-    orderBy: { id: "asc" },
-    take: limit + 1,
-  });
-  
-  const hasNextPage = rows.length > limit;
-  const attestations = hasNextPage ? rows.slice(0, -1) : rows;
-  
-  const edges: AttestationEdge[] = attestations.map((attestation) => ({
-    node: mapAttestation(attestation),
-    cursor: encodeCursor(attestation.id),
-  }));
-  
-  const pageInfo: PageInfo = {
-    hasNextPage,
-    hasPreviousPage: !!after,
-    startCursor: edges.length > 0 ? edges[0].cursor : null,
-    endCursor: edges.length > 0 ? edges[edges.length - 1].cursor : null,
-  };
-  
+function mapProposal(p: MultisigProposal): MappedProposal {
   return {
-    edges,
-    pageInfo,
-    totalCount,
+    ...p,
+    expiresAt: String(p.expiresAt),
+    createdAt: p.createdAt.toISOString(),
+    updatedAt: p.updatedAt.toISOString(),
   };
 }
 
@@ -145,6 +89,28 @@ export function buildResolvers(db: PrismaClient) {
           claimTypes,
         };
       },
+
+      proposal: async (_: unknown, args: { id: string }) => {
+        const proposal = await db.multisigProposal.findUnique({
+          where: { id: args.id },
+        });
+        return proposal ? mapProposal(proposal) : null;
+      },
+
+      proposals: async (
+        _: unknown,
+        args: { subject?: string; finalized?: boolean }
+      ) => {
+        const where: Record<string, unknown> = {};
+        if (args.subject) where.subject = args.subject;
+        if (args.finalized !== undefined) where.finalized = args.finalized;
+
+        const rows = await db.multisigProposal.findMany({
+          where,
+          orderBy: { createdAt: "desc" },
+        });
+        return rows.map(mapProposal);
+      },
     },
 
     Subscription: {
@@ -178,6 +144,47 @@ export function buildResolvers(db: PrismaClient) {
         resolve: (payload: {
           onAttestationCreated: ReturnType<typeof mapAttestation>;
         }) => payload.onAttestationCreated,
+      },
+
+      onAttestationRevoked: {
+        subscribe: (_: unknown, args: { issuer?: string }) => {
+          const iter = pubsub.asyncIterableIterator<{
+            onAttestationRevoked: { id: string; issuer: string; revokedAt: string };
+          }>(ATTESTATION_REVOKED);
+
+          if (!args.issuer) return iter;
+
+          const issuer = args.issuer;
+          return {
+            [Symbol.asyncIterator]() {
+              return this;
+            },
+            async next(): Promise<IteratorResult<unknown>> {
+              while (true) {
+                const result = await iter.next();
+                if (result.done) return result;
+                const data = result.value?.onAttestationRevoked;
+                if (!data || data.issuer === issuer) return result;
+              }
+            },
+            async return() {
+              return iter.return?.() ?? { done: true as const, value: undefined };
+            },
+          };
+        },
+        resolve: (payload: {
+          onAttestationRevoked: { id: string; issuer: string; revokedAt: string };
+        }) => payload.onAttestationRevoked,
+      },
+
+      onIssuerRegistered: {
+        subscribe: () =>
+          pubsub.asyncIterableIterator<{
+            onIssuerRegistered: { issuer: string; registeredAt: string };
+          }>(ISSUER_REGISTERED),
+        resolve: (payload: {
+          onIssuerRegistered: { issuer: string; registeredAt: string };
+        }) => payload.onIssuerRegistered,
       },
     },
   };
