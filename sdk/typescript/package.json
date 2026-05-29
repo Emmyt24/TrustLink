@@ -11,6 +11,8 @@
   ],
   "scripts": {
     "build": "tsc",
+    "test": "node --experimental-vm-modules node_modules/.bin/jest",
+    "prepublishOnly": "npm run build"
     "clean": "rm -rf dist",
     "prepublishOnly": "npm run clean && npm run build && npm run validate",
     "validate": "node scripts/validate-package.js",

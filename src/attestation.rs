@@ -83,8 +83,9 @@ pub fn validate_jurisdiction(env: &Env, jurisdiction: &Option<String>) -> Result
         }
         
         // Must be exactly 2 uppercase ASCII letters (A-Z)
-        let bytes = code.as_bytes();
-        if bytes.len() != 2 || !bytes.iter().all(|&b| b >= b'A' && b <= b'Z') {
+        let mut buf = [0u8; 2];
+        code.copy_into_slice(&mut buf);
+        if !buf.iter().all(|&b| b >= b'A' && b <= b'Z') {
             return Err(Error::InvalidJurisdiction);
         }
         
@@ -740,6 +741,12 @@ pub fn request_deletion(env: &Env, subject: Address, attestation_id: String) -> 
 
     let timestamp = env.ledger().timestamp();
     Events::deletion_requested(env, &subject, &attestation_id, timestamp);
+    Storage::append_audit_entry(env, &attestation_id, &AuditEntry {
+        action: AuditAction::Deleted,
+        actor: subject.clone(),
+        timestamp,
+        details: None,
+    });
     Ok(())
 }
 
@@ -778,6 +785,18 @@ pub fn endorse_attestation(env: &Env, endorser: Address, attestation_id: String)
 
 pub fn get_endorsement_count(env: &Env, attestation_id: String) -> u32 {
     Storage::get_endorsements(env, &attestation_id).len()
+}
+
+pub fn list_endorsements_by_endorser(env: &Env, endorser: Address, start: u32, limit: u32) -> Vec<Endorsement> {
+    let all = Storage::get_endorsements_by_endorser(env, &endorser);
+    let total = all.len();
+    let start = start.min(total);
+    let end = (start + limit).min(total);
+    let mut result = Vec::new(env);
+    for i in start..end {
+        result.push_back(all.get(i).unwrap());
+    }
+    result
 }
 
 // -----------------------------------------------------------------------
